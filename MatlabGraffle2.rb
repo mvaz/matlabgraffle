@@ -425,7 +425,6 @@ class MatlabGraffle
     # puts @variables ? @variables.keys : 'empty'
     input_variables = @variables.keys - @connections.values.flatten
     # sort them geometrically
-
     input_variables.sort! { |a,b| @variables[a].object.bounds.x <=> @variables[b].object.bounds.x}
 
     #detect the output variables
@@ -436,21 +435,16 @@ class MatlabGraffle
     # leave those whose name is discard out
     output_variables.reject! {|v| @variables[v].get_name =~ /^\s*discard\s*$/ }
     variable_declarations = []
-    # puts input_variables.map {|v| @variable_names[v]}
-    # puts  ( @variable_names.keys - input_variables )
+
     vs = ( @variables.values - input_variables.map {|v|@variables[v]} ).uniq
     variable_declarations = vs.map { |v| v.get_name + " = [];"}
-    # vs.each { |n| variable_declarations.push( n + " = [];" }
-    # ( @variable_names.values - ( input_variables.map {|v| @variable_names[v]} )).each { |n| variable_declarations.push( n + " = [];"}
-    # ( @variable_names.keys - input_variables ).each { |k| variable_declarations.push( @variable_names[k] + " = [];") }
 
     # Select the components that come before and after the part dependent on the components
     after    = @code.values.select { |b| b.name == "end" }.flatten[0]
     preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
-    inputs   = @code.values.select { |b| b.name != "init" && b.name != "end"}
 
     # Get the variable which should serve as a input to the initialization function
-    # inputs   = (@code.values - (after.nil? ? [] : [after])) - (preamble.nil? ? []:[preamble])
+    inputs   = @code.values.select { |b| b.name != "init" && b.name != "end"}
     # Sort them by height
     inputs.sort! { |a,b| a.object.bounds.y <=> b.object.bounds.y }
     # TODO include this information (default values )
