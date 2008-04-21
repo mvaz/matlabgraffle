@@ -235,14 +235,14 @@ class MatlabGraffle
     # build the variables first, then the components first,
     # and then use the lines to update the components
     # and the connection scheme
-    graphics   = sheet.graphics
+    graphics = sheet.graphics
 
-    lines      = graphics.select { |g| g.behaves_like?(Graffle::LineGraphic) }.compact
-    comps = graphics.select { |g| g.is_component? }.compact
+    lines    = graphics.select { |g| g.behaves_like?(Graffle::LineGraphic) }.compact
+    comps    = graphics.select { |g| g.is_component? }.compact
 
-    vars  = graphics.select { |g| g.is_variable?  }.compact
-    notes      = graphics.select { |g| g.is_code_block? }.compact
-    clouds     = graphics.select { |g| g.is_comment? }.compact
+    vars     = graphics.select { |g| g.is_variable?  }.compact
+    notes    = graphics.select { |g| g.is_code_block? }.compact
+    clouds   = graphics.select { |g| g.is_comment? }.compact
 
     # iterate through the variables
     vars.each do |g|
@@ -257,10 +257,12 @@ class MatlabGraffle
     comps.each do |g|
       c = Component.new
       
+      # process inputs
       ins = lines.select {|l| l['Head']['ID'] == g['ID']}
       ins.sort! {|a,b| a.points[-1].x <=> b.points[-1].x}
       ins.map! { |l| @variables[ l['Tail']['ID'] ] }
 
+      # process outputs
       outs = lines.select {|l| l['Tail']['ID'] == g['ID']}
       outs.sort! {|a,b| a.points[0].x <=> b.points[0].x}
       outs.map! { |l| @variables[ l['Head']['ID'] ] }    
@@ -274,10 +276,10 @@ class MatlabGraffle
     # parse the lines, in order to get the topological order working
     lines.each do |l|
 
-      # this is a big source of problems...
-      # maybe throw an exception, here?
+      # this is a big source of problems...make the exception call a bit more informative
       head = l['Head']['ID']
       tail = l['Tail']['ID']
+      raise "Line not fully connected" if ( head.nil? or tail.nil? )
  
       from_id = @components.select { |id,g| g.get_id == tail }
       from_id = from_id.flatten[0]
