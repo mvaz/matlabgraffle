@@ -412,6 +412,7 @@ class MatlabGraffle
        # puts( 'what the fuck?')
 
     program_parts = self.walk_through
+    
 
     compute = program_parts['Compute']
     init    = program_parts['Init']
@@ -420,12 +421,23 @@ class MatlabGraffle
     # sort the components and variables
     ordered = @connections.tsort.reverse
 
+
+    # variables
+    program = []
+    input_variables  = []
+    output_variables = []
+    variable_declarations = []
+    outputs = []
+    inputs  = []
+    after   = []
+    before  = []
+    sources = []
+
     #detect the input variables
-    # puts @variable.map {|v| v.get_id }
-    # puts @variables ? @variables.keys : 'empty'
     input_variables = @variables.keys - @connections.values.flatten
     # sort them geometrically
     input_variables.sort! { |a,b| @variables[a].object.bounds.x <=> @variables[b].object.bounds.x}
+
 
     #detect the output variables
     output_variables = @variables.keys.select {|k| @connections[k].empty? }.flatten
@@ -434,27 +446,29 @@ class MatlabGraffle
 
     # leave those whose name is discard out
     output_variables.reject! {|v| @variables[v].get_name =~ /^\s*discard\s*$/ }
-    variable_declarations = []
 
+    # declare the variables local to the function
+    variable_declarations = []
     vs = ( @variables.values - input_variables.map {|v|@variables[v]} ).uniq
     variable_declarations = vs.map { |v| v.get_name + " = [];"}
 
-    # Select the components that come before and after the part dependent on the components
+
+    # Select the code blocks
     after    = @code.values.select { |b| b.name == "end" }.flatten[0]
     preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
 
-    # Get the variable which should serve as a input to the initialization function
+
+    # Get the inputs to the initialization function...
     inputs   = @code.values.select { |b| b.name != "init" && b.name != "end"}
-    # Sort them by height
+    # ... and sort them by height
     inputs.sort! { |a,b| a.object.bounds.y <=> b.object.bounds.y }
-    # TODO include this information (default values )
+    # TODO use the default values
     # input_default = inputs.map { |i| i['Notes'].as_plain_text }
 
 
-    # FIXME doesnt seem to work with the values
+    # FIXME doesn't seem to work with the values
     sources  = @components.values.select { |c| c.get_type == 'Source'}
 
-    program = []
     begin
       program.push('function varargout = init' + component_name + '( '+  inputs.map { |i| i.name }.join(', ') + ' )' )
     rescue
