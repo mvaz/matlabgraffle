@@ -59,7 +59,7 @@ module Graffle
     end
 
     def is_code_block?
-      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'NoteShape'
+      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'NoteShape' #&& 
     end
 
     def is_component?
@@ -211,9 +211,8 @@ class CodeBlock
   end
 end
 
-
-
 class MatlabGraffle
+  attr_reader :components, :variables, :connections, :code, :boxes, :comments
   def init( comps, vars, connect, code, boxes, comments)
     @components  = comps
     @variables   = vars
@@ -277,9 +276,12 @@ class MatlabGraffle
     lines.each do |l|
 
       # this is a big source of problems...make the exception call a bit more informative
+      # puts l
       head = l['Head']['ID']
+      # puts head
       tail = l['Tail']['ID']
-      raise "Line not fully connected" if ( head.nil? or tail.nil? )
+      # puts tail
+      # raise "Line not fully connected" if ( head.empty? or tail.empty? )
  
       from_id = @components.select { |id,g| g.get_id == tail }
       from_id = from_id.flatten[0]
@@ -304,7 +306,7 @@ class MatlabGraffle
 
     notes.each do |n|
       c = CodeBlock.new
-      c.init_from_object( c )
+      c.init_from_object( n )
       @code[ c.get_id ] = c
     end
     
@@ -317,7 +319,6 @@ class MatlabGraffle
     #
     # self.init( comps, var_names, connect, vars, [], [], [], [])
   end
-
 
   def walk_through
     ordered = @connections.tsort.reverse
@@ -353,7 +354,6 @@ class MatlabGraffle
     output['InitSrc'] = initSrc
     return output
   end
-
 
   def make_script
 
@@ -403,10 +403,6 @@ class MatlabGraffle
     return program
   end
 
-
-
-
-
   def make_virtual_component( component_name )
     
     # TODO restrictions: 
@@ -449,17 +445,16 @@ class MatlabGraffle
     # ( @variable_names.keys - input_variables ).each { |k| variable_declarations.push( @variable_names[k] + " = [];") }
 
     # Select the components that come before and after the part dependent on the components
-    after    = @boxes.select { |b| b['Text'].as_lines[-1] == "end" }.flatten[0]
-    preamble = @boxes.select { |b| b['Text'].as_lines[-1] == "init" }.flatten[0]
+    after    = @code.values.select { |b| b.name == "end" }.flatten[0]
+    preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
+    inputs   = @code.values.select { |b| b.name != "init" && b.name != "end"}
 
     # Get the variable which should serve as a input to the initialization function
-    inputs   = (@boxes.values - (after.nil? ? [] : [after])) - (preamble.nil? ? []:[preamble])
+    # inputs   = (@code.values - (after.nil? ? [] : [after])) - (preamble.nil? ? []:[preamble])
     # Sort them by height
-    inputs.sort! { |a,b| a.bounds.y <=> b.bounds.y }
-    input_names = inputs.map { |i| i['Text'].as_lines[-1] }
+    inputs.sort! { |a,b| a.object.bounds.y <=> b.object.bounds.y }
     # TODO include this information (default values )
-    # puts( 'what the fuck?')
-    input_default = inputs.map { |i| i['Notes'].as_plain_text }
+    # input_default = inputs.map { |i| i['Notes'].as_plain_text }
 
 
     # FIXME doesnt seem to work with the values
@@ -467,7 +462,7 @@ class MatlabGraffle
 
     program = []
     begin
-      program.push('function varargout = init' + component_name + '( '+  input_names.join(', ') + ' )' )
+      program.push('function varargout = init' + component_name + '( '+  inputs.map { |i| i.name }.join(', ') + ' )' )
     rescue
     end
     program.push('')
@@ -495,7 +490,6 @@ class MatlabGraffle
     program.push('')
     program.push( '%% the function') 
     program.push( "function [" + output_variables.map{|s| @variables[s].get_name}.join( ", ") +"] = "+component_name+"( " + input_variables.map{|s| @variables[s].get_name}.join(", ") + " )" )
-    puts '1'
     program.concat( variable_declarations.map { |s| "    " + s} )
     program.concat( compute.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
