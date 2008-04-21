@@ -24,12 +24,12 @@ if $0 == __FILE__
     h = mg.zbr
     program = mg.make_normal_flow( h )
 
-    fout = File.open("/Users/miguel/matlab/M-FILES/CopySynthesis/"+ sheet['SheetTitle']+ ".m", "w+")
+    # fout = File.open("/Users/miguel/matlab/M-FILES/CopySynthesis/"+ sheet['SheetTitle']+ ".m", "w+")
     # fout = File.open( sheet['SheetTitle']+ ".m", "w+")
-    fout.puts program
-    fout.close
+    # fout.puts program
+    # fout.close
     
-    # puts program
+    puts program
     
     # Handle the other sheets, containing sub programs
     # mg1 = MatlabGraffle.new
