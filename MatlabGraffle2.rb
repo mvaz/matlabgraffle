@@ -13,6 +13,7 @@ include S4tUtils
 
 require 'graffle'
 require 'tsort'
+require 'date'
 
 
 # amplify class Hash, so that it is possible
@@ -182,6 +183,8 @@ class Comment
   end
 
   def get_id; return @object['ID']; end
+  
+  def get_name; return @object['Text'].as_plain_text; end
 
   def get_text
     txt = @object['Notes'].as_lines
@@ -471,9 +474,16 @@ class MatlabGraffle
 
     begin
       program.push('function varargout = init' + component_name + '( '+  inputs.map { |i| i.name }.join(', ') + ' )' )
+      program.push('% init' + component_name + ' function')
+      @comments.each do |i,c|
+        program.push('% ' + c.get_name)
+      end 
     rescue
     end
-    program.push('')
+    program.push('%')
+    program.push('%   Date: ' + Date.today.to_s)
+    program.push('%   Author: Miguel Vaz')
+    program.push('%')
 
     unless preamble.nil? or preamble.empty?
       program.push( "%% preamble")
