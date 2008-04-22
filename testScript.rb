@@ -11,7 +11,7 @@ if $0 == __FILE__
     file = 'graphs/testInputOrder.graffle'
     doc  = Graffle.parse_file(file)
     sheet = doc.first_sheet
-    sheet = doc.sheets.select { |s| s['SheetTitle'] == 'Canvas 2' }[0]
+    sheet = doc.sheets.select { |s| s['SheetTitle'] == 'computeSpeechParameters' }[0]
     graphics = sheet.graphics
 
      # a = graphics.select { |g| g['Class'] == 'TableGroup' }
@@ -28,7 +28,7 @@ if $0 == __FILE__
 
 
     # puts "make code"
-     code = mg.make_virtual_component( sheet['SheetTitle'] ? sheet['SheetTitle'] : 'test'  )
+     code = mg.make_script#( sheet['SheetTitle'] ? sheet['SheetTitle'] : 'test'  )
     # puts "code is done"
     # puts code
      # puts code

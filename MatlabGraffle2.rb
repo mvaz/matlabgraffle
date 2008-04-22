@@ -64,7 +64,7 @@ module Graffle
     end
 
     def is_component?
-      return self.behaves_like?(Graffle::ShapedGraphic) && ( self['Shape'] == 'Rectangle' || self['Shape'] == 'Triangle' || self['Shape'] == 'RoundRect')
+      return self.behaves_like?(Graffle::ShapedGraphic) && ( self['Shape'] == 'Rectangle' || self['Shape'] == 'VerticalTriangle' || self['Shape'] == 'RoundRect')
     end
     
     def clean_notes
@@ -74,7 +74,7 @@ module Graffle
     end
     
     def clean_name
-      txt = self['Text'] ? self['Text'].as_lines : []
+      txt = self['Text'] ? self['Text'].as_lines[-1] : []
       txt = txt.map { |l| l.gsub /\\([\{\}])/, '\1' }
       return txt.join('\n')
     end
@@ -111,7 +111,7 @@ class Component
     case g['Shape']
     when 'Rectangle'
       type = 'Normal'
-    when 'Triangle'
+    when 'VerticalTriangle'
       type = 'Source'
     when 'RoundRect'
       type = 'Virtual'
@@ -153,8 +153,6 @@ class Component
     return txt
   end 
 end
-
-
 
 class Variable
   attr_reader :name, :code, :object
@@ -333,7 +331,6 @@ class MatlabGraffle
 
     ordered.each do |c|
       if @components[c]
-
         case @components[c].type
         when 'Source'
           initSrc.push('')
@@ -361,26 +358,31 @@ class MatlabGraffle
   def make_script
 
     program_parts = self.walk_through
-    
+
     compute = program_parts['Compute']
     init    = program_parts['Init']
     initSrc = program_parts['InitSrc']
 
-    # Select the components that come before and after the part dependent on the components
-    after    = @boxes.select { |b| b['Text'].as_lines[-1] == "end" }.flatten[0]
-    preamble = @boxes.select { |b| b['Text'].as_lines[-1] == "init" }.flatten[0]
+    # sort the components and variables
+    ordered = @connections.tsort.reverse
+
+
+    # Select the code blocks
+    after    = @code.values.select { |b| b.name == "end" }.flatten[0]
+    preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
 
     # FIXME doesnt seem to work with the values
     sources  = @components.values.select { |c| c.get_type == 'Source'}
+    # puts @components.values.map { |c| c.get_type + " " + c.get_name }
 
     program = []
 
-    unless preamble.nil? or preamble.empty?
+    unless preamble.nil?
       program.push( "%% preamble")
-      program.push( preamble['Notes'].as_plain_text).flatten
+      program.push( preamble.get_notes).flatten
     end
 
-    unless init.nil? or init.empty?
+    unless init.nil? || init.empty?
       program.push("\r")
       program.concat(init)
       program.push("display('initialization finished')")
@@ -394,32 +396,25 @@ class MatlabGraffle
 
     program.push( '% the loop')
     program.push( 'tic') 
-    program.push( "while " + sources.map { |s| s.get_nme + "HasJuice(" + s.get_nme + ")"  }.join( " & ") )
-    program.concat( compute.map { |s| "    " + s} )
+    program.push( "while " + sources.map { |s| s.get_name + "HasJuice(" + s.get_name + ")"  }.join( " & ") )
+    program.concat( compute.compact.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
     program.push( 'toc')
 
-    unless after.nil? || after.empty?
-      program.push( after['Notes'].as_plain_text ).flatten
+    unless after.nil?
+      program.push( after.get_notes ).flatten
     end
 
     return program
   end
 
   def make_virtual_component( component_name )
-    
-    # TODO restrictions: 
-    # every variable must be previously declared
-    # whipe out every 'accumulate'
-    # insert the coefficients into the GetCochlea
-       # puts( 'what the fuck?')
 
     program_parts = self.walk_through
     
 
     compute = program_parts['Compute']
     init    = program_parts['Init']
-    initSrc = program_parts['InitSrc']
 
     # sort the components and variables
     ordered = @connections.tsort.reverse
