@@ -20,10 +20,7 @@ if $0 == __FILE__
 
     # Handle the other sheets, containing sub programs
     mg = MatlabGraffle.new
-
     mg.init_from_sheet(sheet)
-    h = mg.zbr
-
     code = mg.make_virtual_component( sheet['SheetTitle'] )
 
     puts code
