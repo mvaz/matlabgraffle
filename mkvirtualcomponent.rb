@@ -26,14 +26,6 @@ if $0 == __FILE__
 
     code = mg.make_virtual_component( sheet['SheetTitle'] )
 
-    # puts code
-    # TODO maybe use the name of the sheet to name the file
-    # make a composite document
-    # make a function to spit out a "virtual component"
-
-    # fout = File.open("/Users/miguel/matlab/M-FILES/CopySynthesis/init" + doc.sheets[1]['SheetTitle']  + ".m", "w+")
-    # fout.puts code
-    # fout.close
     puts code
 
   end
