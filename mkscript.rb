@@ -20,33 +20,12 @@ if $0 == __FILE__
     else
       sheet = doc.first_sheet
     end
-    mg    = MatlabGraffle.new
+
+    mg = MatlabGraffle.new
     mg.init_from_sheet(sheet)
 
-    h = mg.zbr
-    program = mg.make_normal_flow( h )
-    # fout = File.open("/Users/miguel/matlab/M-FILES/CopySynthesis/"+ sheet['SheetTitle']+ ".m", "w+")
-    # fout = File.open( sheet['SheetTitle']+ ".m", "w+")
-    # fout.puts program
-    # fout.close
-    
+    program = mg.make_script
     puts program
-    
-    # Handle the other sheets, containing sub programs
-    # mg1 = MatlabGraffle.new
-    # mg1.init_from_sheet(doc.sheets[1])
-    # h = mg1.zbr
-    # code = mg1.make_virtual_component( doc.sheets[1]['SheetTitle'], h )
-    # puts code
-    # puts code
-    # TODO maybe use the name of the sheet to name the file
-    # make a composite document
-    # make a function to spit out a "virtual component"
-
-    # fout = File.open("/Users/miguel/matlab/M-FILES/CopySynthesis/init" + doc.sheets[1]['SheetTitle']  + ".m", "w+")
-    # fout.puts code
-    # fout.close
-    # puts code
 
   end
 end
