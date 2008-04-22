@@ -13,7 +13,7 @@ include S4tUtils
 
 require 'graffle'
 require 'tsort'
-# require 'date'
+require 'date'
 
 
 # amplify class Hash, so that it is possible
@@ -55,13 +55,30 @@ module Graffle
       return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'Circle'
     end
 
-    def is_function?
-      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'RoundRect'
+    def is_comment?
+      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'Cloud'
     end
 
     def is_code_block?
-      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'Rectangle'
+      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'NoteShape' #&& 
     end
+
+    def is_component?
+      return self.behaves_like?(Graffle::ShapedGraphic) && ( self['Shape'] == 'Rectangle' || self['Shape'] == 'VerticalTriangle' || self['Shape'] == 'RoundRect')
+    end
+    
+    def clean_notes
+      txt = self['Notes'] ? self['Notes'].as_lines : []
+      txt = txt.map { |l| l.gsub /\\([\{\}])/, '\1' }
+      return txt
+    end
+    
+    def clean_name
+      txt = self['Text'] ? self['Text'].as_lines[-1] : []
+      txt = txt.map { |l| l.gsub /\\([\{\}])/, '\1' }
+      return txt.join('\n')
+    end
+
   end
 
 end
@@ -85,298 +102,288 @@ class Component
     @type    = type
   end
 
-  def init_from_group( group )
-    name = group.get_name
-    initialization = group.get_notes
+  def init_from_object( g, inputs = [], outputs = [] )
+    name  = g.clean_name
 
-    # get inputs and outputs, which are represented by circles
-    points = group.get_graphics_by_shape( 'Circle' )
-    main   = group.get_graphics_by_shape('Rectangle').concat( group.get_graphics_by_shape('VerticalTriangle') )
-    type   = main[0]['Shape'] == 'Rectangle' ? 'Normal' : 'Source'
+    initialization = g.clean_notes
+    object  = g['ID']
 
-    # detect the middle point of main component, important to
-    # distinguish between an input and an output
-    middle = main[0].bounds.y + ( main[0].bounds.height / 2)
+    case g['Shape']
+    when 'Rectangle'
+      type = 'Normal'
+    when 'VerticalTriangle'
+      type = 'Source'
+    when 'RoundRect'
+      type = 'Virtual'
+    end
 
-    # identify the inputs and sort them
-    inputs = points.select { |p| p.bounds.y < middle }
-    inputs.sort! {|a,b| a.bounds.x <=> b.bounds.x}
-
-    # identify the ouputs and sort them
-    outputs = points.select { |p| p.bounds.y > middle }
-    outputs.sort! {|a,b| a.bounds.x <=> b.bounds.x}
-
-    init( name, inputs.map {|x| x['ID']}, 
-                outputs.map {|x| x['ID']},
-                initialization, group, type)
+    init( name, inputs, outputs, initialization, g, type)
   end
 
   def to_s
     return ["name" => @name, "init" => @initialization, "inputs" => @inputs, "ouputs" => @outputs].to_s
   end
 
-
-  def belongs?( id )
-    return self.get_graphics.include?(id)
-  end
-
-  def get_graphics
-    return @inputs.dup.concat(@outputs).push( @object['ID'])
-  end
-  
   def get_id; return @object['ID']; end
   def get_type; return @type; end
   def get_inputs; return @inputs; end
   def get_outputs; return @outputs; end
-  def get_nme; return @name; end
+  def get_name; return @name; end
 
   def get_initialization
-    init = @initialization.gsub /%name%/, @name
-    init = init.gsub /\\([\{\}])/, '\1'
-    return init
+    zbr = @initialization.map { |c| c.gsub /%name%/, self.get_name  }  
+    return zbr.join("\n") 
   end
+  
+  def get_compute
+
+    in_names  = @inputs.map { |i| i.get_name }
+    in_names  = [ self.get_name ].concat( in_names )
+
+    out_names = @outputs.map { |o| o.get_name }
+
+    case @type
+    when 'Normal', 'Source'
+      out_names = [ self.get_name ].concat( out_names )
+      txt = "[ " + out_names.join(" ") + "] = compute(" + in_names.join(", ")+ ");"
+    when 'Virtual'
+      txt = "[ " + out_names.join(" ") + "] = feval(" + in_names.join(", ")+ ");"
+    end 
+
+    return txt
+  end 
 end
 
-class VirtualComponent
-  attr_reader :name, :inputs, :outputs, :initialization, :object
-  def initialize(name, inputs = [], outputs = [], init = [], object = [] )
+class Variable
+  attr_reader :name, :code, :object
+  def init(name, code = [], object = [] )
     @name = name
-    @inputs = inputs
-    @outputs = outputs
-    @init = init
+    @code = code
     @object = object
   end
   
-  # def ini
+  def init_from_object(g)
+    self.init( g.clean_name, g.clean_notes, g)
+  end
+    
+  def get_id; return @object['ID']; end
+  def get_name; return @name; end
+  def get_code
+    zbr = @code.map { |c| c.gsub /%name%/, self.get_name }
+    return zbr.join("\n")
+  end
+end
+
+class Comment
+  attr_reader :object
+  def init(object)
+    @object  = object
+  end
+
+  def get_id; return @object['ID']; end
+  
+  def get_name; return @object['Text'].as_plain_text; end
+
+  def get_text
+    txt = @object['Notes'].as_lines
+    txt.map! { |l| l.gsub "^", "% "}
+    return txt.join("\n")
+  end
+end
+
+
+# define the object that will contain chunks of initialization and end code
+class CodeBlock
+  attr_reader :name, :object
+
+  def init( name, object = [] )
+    @name = name
+    @object  = object
+  end
+
+  def init_from_object( object )
+    @name = object['Text'].as_lines[-1]
+    @object = object
+  end
+  def get_id; return @object['ID']; end
+  def get_notes
+    txt = @object['Notes'].as_lines
+    return txt.join("\n")
+  end
 end
 
 class MatlabGraffle
-  def init( comps, var_names, connect, vars, funcs, h, boxes, virtual=[])
+  attr_reader :components, :variables, :connections, :code, :boxes, :comments
+  def init( comps, vars, connect, code, boxes, comments)
     @components  = comps
-    @variable_names = var_names
-    @connections = connect
     @variables   = vars
-    @functions   = funcs
-    @ids         = h
+    @connections = connect
+    @code        = code
     @boxes       = boxes
-    @virtual     = virtual
+    @comments    = comments
   end
   
   def init_from_sheet( sheet )
-    
-    comps     = Hash.new
-    h         = Hash.new
-    var_names = Hash.new
-    connect   = Hash.new
-    vars      = Hash.new
-    funcs     = Hash.new
-    virtual   = Hash.new
-    # build the components first, and then use the lines to update the components
+    @components  = Hash.new
+    @variables   = Hash.new
+    @connections = Hash.new
+    @code        = Hash.new
+    @boxes       = Hash.new
+    @comments    = Hash.new
+
+
+    # build the variables first, then the components first,
+    # and then use the lines to update the components
+    # and the connection scheme
     graphics = sheet.graphics
-    
-    groups = graphics.select { |g| g.behaves_like?(Graffle::Group) }.compact
-    lines  = graphics.select { |g| g.behaves_like?(Graffle::LineGraphic) }.compact
 
-    others = (graphics - groups) - lines
+    lines    = graphics.select { |g| g.behaves_like?(Graffle::LineGraphic) }.compact
+    comps    = graphics.select { |g| g.is_component? }.compact
 
-    boxes  = others.select { |g| g.is_code_block? }.compact
-    circles= others.select { |g| g.is_variable? }.flatten.compact
-    rrect  = others.select { |g| g.is_function? }.flatten.compact
+    vars     = graphics.select { |g| g.is_variable?  }.compact
+    notes    = graphics.select { |g| g.is_code_block? }.compact
+    clouds   = graphics.select { |g| g.is_comment? }.compact
 
-    # make the components out of the groups
-    groups.each do |g|
+    # iterate through the variables
+    vars.each do |g|
+      v = Variable.new
+      v.init_from_object(g)
+
+      @variables[ v.get_id ] = v
+      @connections[ v.get_id ] = []
+    end
+
+    # iterate throught the components
+    comps.each do |g|
       c = Component.new
-      c.init_from_group(g)
-      comps[g['ID']] = c
-      connect[g['ID']] = []
-    end
+      
+      # process inputs
+      ins = lines.select {|l| l['Head']['ID'] == g['ID']}
+      ins.sort! {|a,b| a.points[-1].x <=> b.points[-1].x}
+      ins.map! { |l| @variables[ l['Tail']['ID'] ] }
 
-    # make the virtual components
-    rrect.each do |r|
-      connect[r['ID']] = []
-      funcs[r['ID']] = r
+      # process outputs
+      outs = lines.select {|l| l['Tail']['ID'] == g['ID']}
+      outs.sort! {|a,b| a.points[0].x <=> b.points[0].x}
+      outs.map! { |l| @variables[ l['Head']['ID'] ] }    
 
-      # lines.each {|l| l['Head']['ID'] == r['ID']}
-      ins = lines.select {|l| l['Head']['ID'] == r['ID']}.sort {|a,b| a.points[-1].x <=> b.points[-1].x}
-      ins = ins.map { |l| l['Tail']['ID'] }
+      c.init_from_object( g, ins, outs)
       
-      outs = lines.select {|l| l['Tail']['ID'] == r['ID']}.sort {|a,b| a.points[0].x <=> b.points[0].x}
-      outs = outs.map { |l| l['Head']['ID'] }
-      
-      init = r['Notes'] ? r.notes.as_plain_text : []
-      name = r['Text'].as_lines[-1]
-      
-      virtual[r['ID']] = VirtualComponent.new(name, ins, outs, init, r )
-      
-    end
-
-    # parse the variables, in order to get the names correctly
-    # TODO the inputs and outputs must be in correct order
-    circles.each do |o|
-      var_names[o['ID']] = o.content.as_lines[-1]
-      vars[o['ID']] = o
-      connect[o['ID']] = []
+      @connections[ c.get_id ] = []
+      @components[  c.get_id ] = c
     end
 
     # parse the lines, in order to get the topological order working
     lines.each do |l|
 
+      # this is a big source of problems...make the exception call a bit more informative
+      # puts l
       head = l['Head']['ID']
+      # puts head
       tail = l['Tail']['ID']
-
-      if h[ tail ] 
-        h[ tail ].push( head )
-      else
-        h[ tail ] = [ head ]
-      end
-
-
-      from_id = comps.select { |id,g| g.belongs?( tail ) }
+      # puts tail
+      # raise "Line not fully connected" if ( head.empty? or tail.empty? )
+ 
+      from_id = @components.select { |id,g| g.get_id == tail }
       from_id = from_id.flatten[0]
       if from_id == nil
         from_id = tail
       end
-
-      to_id = comps.select { |id,g| g.belongs?( head ) }
+ 
+      to_id = @components.select { |id,g| g.get_id == head  }
       to_id = to_id.flatten[0]
       if to_id == nil
         to_id = head
       end
 
 
-      if connect[from_id] == nil
-        connect[from_id] = [to_id]
+      if @connections[from_id] == nil
+        @connections[from_id] = [to_id]
       else
-        connect[from_id].push(to_id)
+        @connections[from_id].push(to_id)
       end
 
     end
 
+    notes.each do |n|
+      c = CodeBlock.new
+      c.init_from_object( n )
+      @code[ c.get_id ] = c
+    end
+    
+    clouds.each do |cl|
+      c = Comment.new
+      c.init( cl )
+      @comments[c.get_id] = c
+    end
+
     #
-    self.init( comps, var_names, connect, vars, funcs, h, boxes, virtual)
+    # self.init( comps, var_names, connect, vars, [], [], [], [])
   end
 
-
-  # TODO get a better name for zbr
-  # TODO fix the way this functions sends its output back
-  def zbr
-
+  def walk_through
     ordered = @connections.tsort.reverse
+    
     compute = []
     init    = []
     initSrc = []
     output  = Hash.new
-    
+
     ordered.each do |c|
-
-      if @components[c] && @components[c].get_type != 'Source'
-        # puts 'component'
-        # build an array with the names of the inputs and the name of the component
-        inp = [@components[c].get_nme]
-
-        @components[c].get_inputs.each do |i|
-          inp.push( @variable_names[ @ids.select{ |k,v| v.include?(i) }.flatten.first ] )
+      if @components[c]
+        case @components[c].type
+        when 'Source'
+          initSrc.push('')
+          initSrc.push("%% initialization of " + @components[c].get_name)
+          initSrc.push( @components[c].get_initialization )
+        when 'Normal', 'Virtual'
+          init.push('')
+          init.push("%% initialization of " + @components[c].get_name)
+          init.push( @components[c].get_initialization )
         end
+        compute.push( @components[c].get_compute )
+        compute.push("\n")
 
-        # build an array with the names of the outputs and the name of the component
-        outp = [@components[c].get_nme]
-        @components[c].get_outputs.each do |o|
-          outp.push( @ids[o] ? @variable_names[ @ids[o].first] : 'discard' )
-        end
-
-        # add the compute
-        compute.push('')
-        compute.push("[ " + outp.join(" ") + "] = compute(" + inp.join(", ")+ ");")
-
-        # add the initialization
-        init.push('')
-        init.push("%% initialization of " + @components[c].get_nme)
-        init.push(@components[c].get_initialization)
-
-      elsif @components[c]
-        # puts 'source component'
-        inp = [@components[c].get_nme]
-
-        # build an array with the names of the outputs and the name of the component
-        outp = [@components[c].get_nme]
-        @components[c].get_outputs.each do |o|
-          outp.push( @ids[o] ? @variable_names[ @ids[o].first] : 'discard' )
-        end
-
-        # add the compute
-        compute.push('')
-        compute.push("[ " + outp.join(" ") + "] = compute(" + inp.join(", ")+ ");")
-        
-        # add the initialization
-        initSrc.push('')
-        initSrc.push("%% initialization of " + @components[c].get_nme)
-        initSrc.push(@components[c].get_initialization)
-
-      elsif @variable_names[c]
-        # puts 'variable'
-        if @variables[c]['Notes']
-          notes = @variables[c]['Notes'].as_plain_text.gsub /%name%/, @variable_names[c]
-          compute.push(notes)
-        end
-
-      elsif @functions[c]
-        # puts 'function'
-        # outs = @connections[c]
-        # ins  = @connections.keys.dup.select { |k| @connections[k].include?(c) }
-        ins  = @virtual[c].inputs
-        outs = @virtual[c].outputs
-        # TODO order the inputs and outputs
-        # how? good question...must be somehow based on the order of the points of the arrows
-        ins  = (  ins.empty? ? [] : ins.map {|i| @variable_names[i] } )
-        outs = ( outs.empty? ? '' : "[" + outs.map{|o|@variable_names[o]}.join(', ') + '] = ' )
-
-        label = @functions[c]['Text'].as_lines[-1].gsub /\\([\{\}])/, '\1'
-
-        compute.push('')
-        compute.push(outs + 'feval( ' + ins.unshift(label).join(', ') + ');')
-        
-        # add the initialization
-        init.push('')
-        
-        if @functions[c]['Notes']
-          zbr = @functions[c]['Notes'].as_plain_text.gsub /%name%/, label
-          zbr = zbr.gsub /\\([{}])/, '\1'
-          
-          init.push(zbr)
-        end
+      elsif @variables[c]
+        compute.push( @variables[c].get_code )
       end
-
     end
+
     output['Compute'] = compute
-    output['init']    = init
-    output['initSrc'] = initSrc
+    output['Init']    = init
+    output['InitSrc'] = initSrc
     return output
   end
 
+  def make_script
 
+    program_parts = self.walk_through
 
-  def make_normal_flow( program_parts)
-    
     compute = program_parts['Compute']
-    init    = program_parts['init']
-    initSrc = program_parts['initSrc']
-    
-    # Select the components that come before and after the part dependent on the components
-    after    = @boxes.select { |b| b['Text'].as_lines[-1] == "end" }.flatten[0]
-    preamble = @boxes.select { |b| b['Text'].as_lines[-1] == "init" }.flatten[0]
-    
+    init    = program_parts['Init']
+    initSrc = program_parts['InitSrc']
+
+    # sort the components and variables
+    ordered = @connections.tsort.reverse
+
+
+    # Select the code blocks
+    after    = @code.values.select { |b| b.name == "end" }.flatten[0]
+    preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
+
     # FIXME doesnt seem to work with the values
     sources  = @components.values.select { |c| c.get_type == 'Source'}
+    # puts @components.values.map { |c| c.get_type + " " + c.get_name }
 
     program = []
 
-    unless preamble.nil? or preamble.empty?
+    unless preamble.nil?
       program.push( "%% preamble")
-      program.push( preamble['Notes'].as_plain_text).flatten
+      program.push( preamble.get_notes).flatten
     end
 
-    unless init.nil? or init.empty?
-      program.push("\n")
+    unless init.nil? || init.empty?
+      program.push("\r")
       program.concat(init)
       program.push("display('initialization finished')")
     end
@@ -389,80 +396,89 @@ class MatlabGraffle
 
     program.push( '% the loop')
     program.push( 'tic') 
-    program.push( "while " + sources.map { |s| s.get_nme + "HasJuice(" + s.get_nme + ")"  }.join( " & ") )
-    program.concat( compute.map { |s| "    " + s} )
+    program.push( "while " + sources.map { |s| s.get_name + "HasJuice(" + s.get_name + ")"  }.join( " & ") )
+    program.concat( compute.compact.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
-    program.push( 'toc') 
+    program.push( 'toc')
 
-    unless after.nil? || after.empty?
-      program.push( after['Notes'].as_plain_text ).flatten
+    unless after.nil?
+      program.push( after.get_notes ).flatten
     end
 
     return program
   end
 
+  def make_virtual_component( component_name )
 
-
-
-
-  def make_virtual_component( component_name, program_parts)
+    program_parts = self.walk_through
     
-    # TODO restrictions: 
-    # every variable must be previously declared
-    # whipe out every 'accumulate'
-    # insert the coefficients into the GetCochlea
-       # puts( 'what the fuck?')
-      
+
     compute = program_parts['Compute']
-    init    = program_parts['init']
-    initSrc = program_parts['initSrc']
+    init    = program_parts['Init']
 
     # sort the components and variables
     ordered = @connections.tsort.reverse
 
+
+    # variables
+    program = []
+    input_variables  = []
+    output_variables = []
+    variable_declarations = []
+    outputs = []
+    inputs  = []
+    after   = []
+    before  = []
+    sources = []
+
     #detect the input variables
-    input_variables = @variable_names.keys - @connections.values.flatten
+    input_variables = @variables.keys - @connections.values.flatten
     # sort them geometrically
-    input_variables.sort! { |a,b| @variables[a].bounds.x <=> @variables[b].bounds.x}
+    input_variables.sort! { |a,b| @variables[a].object.bounds.x <=> @variables[b].object.bounds.x}
+
 
     #detect the output variables
-    output_variables = @variable_names.keys.select {|k| @connections[k].empty? }
+    output_variables = @variables.keys.select {|k| @connections[k].empty? }.flatten
     # sort them geometrically
-    output_variables.sort! { |a,b| @variables[a].bounds.x <=> @variables[b].bounds.x }
+    output_variables.sort! { |a,b| @variables[a].object.bounds.x <=> @variables[b].object.bounds.x }
+
     # leave those whose name is discard out
-    output_variables.reject! {|v| @variable_names[v] =~ /^\s*discard\s*$/ }
+    output_variables.reject! {|v| @variables[v].get_name =~ /^\s*discard\s*$/ }
 
+    # declare the variables local to the function
     variable_declarations = []
-    # puts input_variables.map {|v| @variable_names[v]}
-    # puts  ( @variable_names.keys - input_variables )
-    vs = ( @variable_names.values - input_variables.map {|v|@variable_names[v]} )
-    vs = vs.uniq
-    variable_declarations = vs.map { |v| v + " = [];"}
-    # vs.each { |n| variable_declarations.push( n + " = [];" }
-    # ( @variable_names.values - ( input_variables.map {|v| @variable_names[v]} )).each { |n| variable_declarations.push( n + " = [];"}
-    # ( @variable_names.keys - input_variables ).each { |k| variable_declarations.push( @variable_names[k] + " = [];") }
-
-    # Select the components that come before and after the part dependent on the components
-    after    = @boxes.select { |b| b['Text'].as_lines[-1] == "end" }.flatten[0]
-    preamble = @boxes.select { |b| b['Text'].as_lines[-1] == "init" }.flatten[0]
-
-    # Get the variable which should serve as a input to the initialization function
-    inputs   = (@boxes - (after.nil? ? [] : [after])) - (preamble.nil? ? []:[preamble])
-    # Sort them by height
-    inputs.sort! { |a,b| a.bounds.y <=> b.bounds.y }
-    input_names = inputs.map { |i| i['Text'].as_lines[-1] }
-    # TODO include this information (default values )
-    # puts( 'what the fuck?')
-    input_default = inputs.map { |i| i['Notes'].as_plain_text }
+    vs = ( @variables.values - input_variables.map {|v|@variables[v]} ).uniq
+    variable_declarations = vs.map { |v| v.get_name + " = [];"}
 
 
+    # Select the code blocks
+    after    = @code.values.select { |b| b.name == "end" }.flatten[0]
+    preamble = @code.values.select { |b| b.name == "init" }.flatten[0]
 
-    # FIXME doesnt seem to work with the values
+
+    # Get the inputs to the initialization function...
+    inputs   = @code.values.select { |b| b.name != "init" && b.name != "end"}
+    # ... and sort them by height
+    inputs.sort! { |a,b| a.object.bounds.y <=> b.object.bounds.y }
+    # TODO use the default values
+    # input_default = inputs.map { |i| i['Notes'].as_plain_text }
+
+
+    # FIXME doesn't seem to work with the values
     sources  = @components.values.select { |c| c.get_type == 'Source'}
 
-    program = []
-    program.push('function varargout = init' + component_name + '( '+  input_names.join(', ') + ' )' )
-    program.push('')
+    begin
+      program.push('function varargout = init' + component_name + '( '+  inputs.map { |i| i.name }.join(', ') + ' )' )
+      program.push('% init' + component_name + ' function')
+      @comments.each do |i,c|
+        program.push('% ' + c.get_name)
+      end 
+    rescue
+    end
+    program.push('%')
+    program.push('%   Date: ' + Date.today.to_s)
+    program.push('%   Author: Miguel Vaz')
+    program.push('%')
 
     unless preamble.nil? or preamble.empty?
       program.push( "%% preamble")
@@ -478,14 +494,15 @@ class MatlabGraffle
       program.push('')
       program.concat(initSrc)
     end
+
     program.push('')
     program.push("varargout{1} = @%s;" % component_name)
     program.push("if exist('latency','var')")
     program.push("    varargout{2} = latency;")
     program.push("end")
-    program.push('') 
+    program.push('')
     program.push( '%% the function') 
-    program.push( "function [" + output_variables.map{|s| @variable_names[s]}.join( ", ") +"] = "+component_name+"( " + input_variables.map{|s| @variable_names[s]}.join(", ") + " )" )
+    program.push( "function [" + output_variables.map{|s| @variables[s].get_name}.join( ", ") +"] = "+component_name+"( " + input_variables.map{|s| @variables[s].get_name}.join(", ") + " )" )
     program.concat( variable_declarations.map { |s| "    " + s} )
     program.concat( compute.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
@@ -500,15 +517,3 @@ class MatlabGraffle
   end
 
 end
-
-
-# pi first.content.as_lines[1]
-# puts first.graffle_id
-# box = sorted[0]
-# pi box.content.as_plain_text, "The box's content"
-# pi box.note.as_plain_text, "The box's note"
-
-# line = sorted[1]
-# pi line.label.content.as_plain_text, "The line's label"
-# pi line.note.as_plain_text,       "The line's note"
-# pi line.label.note.as_lines, "The line's label's note as line array"
