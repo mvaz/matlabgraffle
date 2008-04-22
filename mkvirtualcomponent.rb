@@ -24,7 +24,7 @@ if $0 == __FILE__
     mg.init_from_sheet(sheet)
     h = mg.zbr
 
-    code = mg.make_virtual_component( sheet['SheetTitle'], h )
+    code = mg.make_virtual_component( sheet['SheetTitle'] )
 
     # puts code
     # TODO maybe use the name of the sheet to name the file

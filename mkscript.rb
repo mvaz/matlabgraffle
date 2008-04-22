@@ -9,7 +9,6 @@ if $0 == __FILE__
   with_pleasant_exceptions do
 
     # define the object to
-    # testfile = File.dirname(__FILE__) + '/test2.graffle'
     testfile = ARGV[0]
     doc      = Graffle.parse_file(testfile)
 
@@ -24,7 +23,7 @@ if $0 == __FILE__
     mg = MatlabGraffle.new
     mg.init_from_sheet(sheet)
 
-    program = mg.make_script
+    program = mg.make_script( sheet['SheetTitle'] )
     puts program
 
   end

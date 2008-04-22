@@ -355,7 +355,7 @@ class MatlabGraffle
     return output
   end
 
-  def make_script
+  def make_script( component_name )
 
     program_parts = self.walk_through
 
@@ -376,6 +376,18 @@ class MatlabGraffle
     # puts @components.values.map { |c| c.get_type + " " + c.get_name }
 
     program = []
+
+    begin
+      program.push('% script ' + component_name)
+      @comments.each do |i,c|
+        program.push('% ' + c.get_name)
+      end 
+    rescue
+    end
+    program.push('%')
+    program.push('%   Date: ' + Date.today.to_s)
+    program.push('%   Author: Miguel Vaz')
+    program.push('%')
 
     unless preamble.nil?
       program.push( "%% preamble")
