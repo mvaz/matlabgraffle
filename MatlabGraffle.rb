@@ -395,7 +395,7 @@ class MatlabGraffle
     end
 
     unless init.nil? || init.empty?
-      program.push("\r")
+      # program.push("\r")
       program.concat(init)
       program.push("display('initialization finished')")
     end
@@ -427,6 +427,7 @@ class MatlabGraffle
 
     compute = program_parts['Compute']
     init    = program_parts['Init']
+    initSrc = program_parts['InitSrc']
 
     # sort the components and variables
     ordered = @connections.tsort.reverse
