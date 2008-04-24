@@ -60,7 +60,7 @@ module Graffle
     end
 
     def is_code_block?
-      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'NoteShape' #&& 
+      return self.behaves_like?(Graffle::ShapedGraphic) && self['Shape'] == 'NoteShape'
     end
 
     def is_component?
@@ -134,7 +134,7 @@ class Component
     zbr = @initialization.map { |c| c.gsub /%name%/, self.get_name  }  
     return zbr.join("\n") 
   end
-  
+
   def get_compute
 
     in_names  = @inputs.map { |i| i.get_name }
@@ -342,7 +342,7 @@ class MatlabGraffle
           init.push( @components[c].get_initialization )
         end
         compute.push( @components[c].get_compute )
-        compute.push("\n")
+        # compute.push("\n")
 
       elsif @variables[c]
         compute.push( @variables[c].get_code )
@@ -432,7 +432,6 @@ class MatlabGraffle
     # sort the components and variables
     ordered = @connections.tsort.reverse
 
-
     # variables
     program = []
     input_variables  = []
@@ -461,7 +460,8 @@ class MatlabGraffle
     # declare the variables local to the function
     variable_declarations = []
     vs = ( @variables.values - input_variables.map {|v|@variables[v]} ).uniq
-    variable_declarations = vs.map { |v| v.get_name + " = [];"}
+    variable_declarations = vs.map { |v| v.get_name }.uniq
+    variable_declarations = variable_declarations.map { |v| v + " = [];"}
 
 
     # Select the code blocks
@@ -499,12 +499,10 @@ class MatlabGraffle
     end
 
     unless init.nil? or init.empty?
-      program.push('')
       program.concat(init)
     end
 
     unless initSrc.nil? || initSrc.empty?
-      program.push('')
       program.concat(initSrc)
     end
 
@@ -517,6 +515,7 @@ class MatlabGraffle
     program.push( '%% the function') 
     program.push( "function [" + output_variables.map{|s| @variables[s].get_name}.join( ", ") +"] = "+component_name+"( " + input_variables.map{|s| @variables[s].get_name}.join(", ") + " )" )
     program.concat( variable_declarations.map { |s| "    " + s} )
+    program.push('')
     program.concat( compute.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
 
