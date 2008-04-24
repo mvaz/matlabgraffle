@@ -197,12 +197,12 @@ class CodeBlock
   attr_reader :name, :object
 
   def init( name, object = [] )
-    @name = name
-    @object  = object
+    @name   = name
+    @object = object
   end
 
   def init_from_object( object )
-    @name = object['Text'].as_lines[-1]
+    @name   = object['Text'].as_lines[-1]
     @object = object
   end
   def get_id; return @object['ID']; end
@@ -493,9 +493,9 @@ class MatlabGraffle
     program.push('%   Author: Miguel Vaz')
     program.push('%')
 
-    unless preamble.nil? or preamble.empty?
+    unless preamble.nil?
       program.push( "%% preamble")
-      program.push( preamble['Notes'].as_plain_text).flatten
+      program.push( preamble.get_notes ).flatten
     end
 
     unless init.nil? or init.empty?
@@ -520,8 +520,8 @@ class MatlabGraffle
     program.concat( compute.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
 
-    unless after.nil? || after.empty?
-      program.push( after['Notes'].as_plain_text ).flatten
+    unless after.nil?
+      program.push( after.get_notes ).flatten
     end
     
     program.push('end')
