@@ -28,7 +28,7 @@ end
 
 # introduction of some functionality to the classes Group and AbstractGraphic
 module Graffle
-  
+
   module Group
 
     def get_graphics_by_shape( shape )
@@ -66,13 +66,13 @@ module Graffle
     def is_component?
       return self.behaves_like?(Graffle::ShapedGraphic) && ( self['Shape'] == 'Rectangle' || self['Shape'] == 'VerticalTriangle' || self['Shape'] == 'RoundRect')
     end
-    
+
     def clean_notes
       txt = self['Notes'] ? self['Notes'].as_lines : []
       txt = txt.map { |l| l.gsub /\\([\{\}])/, '\1' }
       return txt
     end
-    
+
     def clean_name
       txt = self['Text'] ? self['Text'].as_lines[-1] : []
       txt = txt.map { |l| l.gsub /\\([\{\}])/, '\1' }
@@ -161,11 +161,11 @@ class Variable
     @code = code
     @object = object
   end
-  
+
   def init_from_object(g)
     self.init( g.clean_name, g.clean_notes, g)
   end
-    
+
   def get_id; return @object['ID']; end
   def get_name; return @name; end
   def get_code
@@ -222,7 +222,7 @@ class MatlabGraffle
     @boxes       = boxes
     @comments    = comments
   end
-  
+
   def init_from_sheet( sheet )
     @components  = Hash.new
     @variables   = Hash.new
@@ -256,7 +256,7 @@ class MatlabGraffle
     # iterate throught the components
     comps.each do |g|
       c = Component.new
-      
+
       # process inputs
       ins = lines.select {|l| l['Head']['ID'] == g['ID']}
       ins.sort! {|a,b| a.points[-1].x <=> b.points[-1].x}
@@ -268,7 +268,7 @@ class MatlabGraffle
       outs.map! { |l| @variables[ l['Head']['ID'] ] }    
 
       c.init_from_object( g, ins, outs)
-      
+
       @connections[ c.get_id ] = []
       @components[  c.get_id ] = c
     end
@@ -310,7 +310,7 @@ class MatlabGraffle
       c.init_from_object( n )
       @code[ c.get_id ] = c
     end
-    
+
     clouds.each do |cl|
       c = Comment.new
       c.init( cl )
@@ -423,7 +423,7 @@ class MatlabGraffle
   def make_virtual_component( component_name )
 
     program_parts = self.walk_through
-    
+
 
     compute = program_parts['Compute']
     init    = program_parts['Init']
@@ -522,9 +522,9 @@ class MatlabGraffle
     unless after.nil?
       program.push( after.get_notes ).flatten
     end
-    
+
     program.push('end')
-    
+
     return program
   end
 
