@@ -443,6 +443,7 @@ class MatlabGraffle
     before  = []
     sources = []
 
+
     #detect the input variables
     input_variables = @variables.keys - @connections.values.flatten
     # sort them geometrically
@@ -450,17 +451,21 @@ class MatlabGraffle
 
 
     #detect the output variables
-    output_variables = @variables.keys.select {|k| @connections[k].empty? }.flatten
+    # FIXME @connections seems not to be the best thing to test the connectivity
+    # puts @variables.keys.select { |v| @connections[v].empty? }.map {|v| @variables[v].get_name}.uniq
+    output_variables = @variables.keys.select {|k| @connections[k].empty? }.flatten.uniq
     # sort them geometrically
     output_variables.sort! { |a,b| @variables[a].object.bounds.x <=> @variables[b].object.bounds.x }
 
     # leave those whose name is discard out
     output_variables.reject! {|v| @variables[v].get_name =~ /^\s*discard\s*$/ }
+    # puts output_variables
 
     # declare the variables local to the function
+    # puts input_variables.class
     variable_declarations = []
-    vs = ( @variables.values - input_variables.map {|v|@variables[v]} ).uniq
-    variable_declarations = vs.map { |v| v.get_name }.uniq
+    variable_declarations = @variables.values.map { |v| v.get_name }.uniq
+    variable_declarations = variable_declarations - input_variables.map {|v| @variables[v].get_name }
     variable_declarations = variable_declarations.map { |v| v + " = [];"}
 
 
@@ -512,7 +517,7 @@ class MatlabGraffle
     program.push("    varargout{2} = latency;")
     program.push("end")
     program.push('')
-    program.push( '%% the function') 
+    program.push( '%% the function')
     program.push( "function [" + output_variables.map{|s| @variables[s].get_name}.join( ", ") +"] = "+component_name+"( " + input_variables.map{|s| @variables[s].get_name}.join(", ") + " )" )
     program.concat( variable_declarations.map { |s| "    " + s} )
     program.push('')
