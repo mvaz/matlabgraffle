@@ -406,7 +406,8 @@ class MatlabGraffle
       program.push("display('initialization of sources finished')")
     end
 
-    program.push( '% the loop')
+    program.push( '') 
+    program.push( '%% the loop')
     program.push( 'tic') 
     program.push( "while " + sources.map { |s| s.get_name + "HasJuice(" + s.get_name + ")"  }.join( " & ") )
     program.concat( compute.compact.map { |s| "    " + s} )
