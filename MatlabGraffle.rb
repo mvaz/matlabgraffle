@@ -258,12 +258,22 @@ class MatlabGraffle
       c = Component.new
 
       # process inputs
-      ins = lines.select {|l| l['Head']['ID'] == g['ID']}
+      begin
+        ins = lines.select {|l| l['Head']['ID'] == g['ID']}
+      rescue
+        puts "Error: Line not fully connected (head)"
+        raise 
+      end
       ins.sort! {|a,b| a.points[-1].x <=> b.points[-1].x}
       ins.map! { |l| @variables[ l['Tail']['ID'] ] }
 
       # process outputs
-      outs = lines.select {|l| l['Tail']['ID'] == g['ID']}
+      begin
+        outs = lines.select {|l| l['Tail']['ID'] == g['ID']}
+      rescue
+        puts "Error: Line not fully connected (tail)"
+        raise 
+      end
       outs.sort! {|a,b| a.points[0].x <=> b.points[0].x}
       outs.map! { |l| @variables[ l['Head']['ID'] ] }    
 
