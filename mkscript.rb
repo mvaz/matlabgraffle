@@ -9,8 +9,8 @@ if $0 == __FILE__
   with_pleasant_exceptions do
 
     # define the object to
-    testfile = ARGV[0]
-    doc      = Graffle.parse_file(testfile)
+    file = ARGV[0]
+    doc  = Graffle.parse_file(file)
 
 
     # Handle first sheet, which contains the main program
