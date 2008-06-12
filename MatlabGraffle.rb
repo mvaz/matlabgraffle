@@ -170,10 +170,6 @@ class Variable
   def get_name; return @name; end
   def get_code
     zbr = @code.map { |c| c.gsub /%name%/, self.get_name }
-    return zbr.join("\n")
-  end
-  def get_code2
-    zbr = @code.map { |c| c.gsub /%name%/, self.get_name }
     return zbr
   end
 end
@@ -359,7 +355,7 @@ class MatlabGraffle
         # compute.push("\n")
 
       elsif @variables[c]
-        compute.concat( @variables[c].get_code2 )
+        compute.concat( @variables[c].get_code )
       end
     end
 
