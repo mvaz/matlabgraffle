@@ -400,6 +400,7 @@ class MatlabGraffle
     program.push('%')
 
     unless preamble.nil?
+      program.push( 'tic') 
       program.push( "%% preamble")
       program.push( preamble.get_notes).flatten
     end
@@ -408,17 +409,18 @@ class MatlabGraffle
       # program.push("\r")
       program.concat(init)
       program.push("display('initialization finished')")
+      program.push("toc")
     end
 
     unless initSrc.nil? || initSrc.empty?
       program.push('')
       program.concat(initSrc)
       program.push("display('initialization of sources finished')")
+      program.push("toc")
     end
 
     program.push( '') 
     program.push( '%% the loop')
-    program.push( 'tic') 
     program.push( "while " + sources.map { |s| s.get_name + "HasJuice(" + s.get_name + ")"  }.join( " & ") )
     program.concat( compute.compact.map { |s| "    " + s} )
     program.push( "end" + "\n\n" )
