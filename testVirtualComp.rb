@@ -3,7 +3,7 @@
 #  Created by Miguel Vaz on 2007-10-14.
 #  Copyright (c) 2007. All rights reserved.
 
-require 'MatlabGraffle2'
+require 'MatlabGraffle'
 
 if $0 == __FILE__
   with_pleasant_exceptions do
