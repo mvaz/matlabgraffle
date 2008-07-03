@@ -155,21 +155,37 @@ class Component
 end
 
 class Variable
-  attr_reader :name, :code, :object
-  def init(name, code = [], object = [] )
+  attr_reader :name, :notes, :user_info, :init
+  def init(name, notes = [], user_info = [], object = [] )
     @name = name
-    @code = code
+    @user_info = user_info
+    @notes = notes
     @object = object
   end
 
   def init_from_object(g)
-    self.init( g.clean_name, g.clean_notes, g)
+    self.init( g.clean_name, g.clean_notes, g['UserInfo'], g)
   end
 
   def get_id; return @object['ID']; end
   def get_name; return @name; end
+
   def get_code
-    zbr = @code.map { |c| c.gsub /%name%/, self.get_name }
+    zbr = @notes.map { |c| c.gsub /%name%/, self.get_name }
+
+    if self.user_info && self.user_info['accumulate']
+      accString = [ "acc" + self.get_name + "(" + get_name + ");" ]
+      zbr = zbr + accString
+    end
+    return zbr
+  end
+
+  def get_init
+    zbr = []
+    if self.user_info && self.user_info['accumulate']
+      accString = [ "acc" + self.get_name + " = buildAccumulator(" + self.user_info['accumulate'] + ");" ]
+      zbr = zbr + accString
+    end
     return zbr
   end
 end
@@ -337,6 +353,7 @@ class MatlabGraffle
     compute = []
     init    = []
     initSrc = []
+    initVar = []
     output  = Hash.new
 
     ordered.each do |c|
@@ -356,12 +373,14 @@ class MatlabGraffle
 
       elsif @variables[c]
         compute.concat( @variables[c].get_code )
+        initVar.concat( @variables[c].get_init )
       end
     end
 
     output['Compute'] = compute
     output['Init']    = init
     output['InitSrc'] = initSrc
+    output['InitVar'] = initVar
     return output
   end
 
@@ -372,6 +391,7 @@ class MatlabGraffle
     compute = program_parts['Compute']
     init    = program_parts['Init']
     initSrc = program_parts['InitSrc']
+    initVar = program_parts['InitVar']
 
     # sort the components and variables
     ordered = @connections.tsort.reverse
@@ -407,6 +427,7 @@ class MatlabGraffle
 
     unless init.nil? || init.empty?
       # program.push("\r")
+      program.push('%% initialization of components')
       program.concat(init)
       program.push("display('initialization finished')")
       program.push("toc")
@@ -414,8 +435,17 @@ class MatlabGraffle
 
     unless initSrc.nil? || initSrc.empty?
       program.push('')
+      program.push('%% initialization of source components')
       program.concat(initSrc)
       program.push("display('initialization of sources finished')")
+      program.push("toc")
+    end
+
+    unless initVar.nil? || initVar.empty?
+      program.push('')
+      program.push('%% initialization of variables')
+      program.concat(initVar)
+      program.push("display('initialization of variables finished')")
       program.push("toc")
     end
 
