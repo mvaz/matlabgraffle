@@ -18,6 +18,7 @@ if $0 == __FILE__
       sheet = doc.sheets.select{ |s| s['SheetTitle'] == ARGV[1] }.flatten[0]
     end
 
+
     # Handle the other sheets, containing sub programs
     mg = MatlabGraffle.new
     mg.init_from_sheet(sheet)

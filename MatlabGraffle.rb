@@ -155,7 +155,7 @@ class Component
 end
 
 class Variable
-  attr_reader :name, :notes, :user_info, :init
+  attr_reader :name, :notes, :user_info, :init, :object
   def init(name, notes = [], user_info = [], object = [] )
     @name = name
     @user_info = user_info
@@ -348,6 +348,7 @@ class MatlabGraffle
   end
 
   def walk_through
+
     ordered = @connections.tsort.reverse
     
     compute = []
